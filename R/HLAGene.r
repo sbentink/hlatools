@@ -49,13 +49,35 @@ HLAGene <- function(locusname, ...) {
 HLAGene_ <- R6::R6Class(
   classname = "HLAGene",
   public = list(
-    initialize = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
+    initialize = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE,kir=FALSE) {
+      private$kir <- kir
+      if (!kir) self$initialize_hla(locusname, ncores = ncores, with_dist = with_dist)
+      else self$initialize_kir(locusname,ncores = ncores,with_dist = with_dist)
+    },
+    initialize_hla = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
       doc <- read_hla_xml()
       private$dbv <- xml2::xml_attr(xml2::xml_find_all(doc, "//d1:alleles/d1:allele[1]/d1:releaseversions"), "currentrelease")
       private$lcn <- match_hla_locus(locusname)
       private$all <- parse_hla_alleles(doc, private$lcn, ncores)
       if (with_dist) {
         private$dmt <- calc_exon2_distance(private$all, verbose = TRUE)
+        private$cns <- calc_consensus_string(private$all, private$lcn, verbose = TRUE)
+      }
+    },
+    initialize_kir = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
+      my_path = file.path(kirtools::get_kir_path(),"extdata")
+      my_file = dir(my_path,"*.dat$")[1]
+      private$dbv = my_file
+      private$lcn = locusname
+      kir_ob = kirtools::KIRAlleleFromDB(locusname,file.path(my_path,my_file),"exec")
+      hla_ob = new("HLAAllele")
+      hla_ob@sequence  = kir_ob@sequence
+      hla_ob@features  = kir_ob@features
+
+      hla_ob@metadata  = kir_ob@metadata
+      private$all = hla_ob
+      if (with_dist) {
+        private$dmt <- calc_common_exon_distance(private$all, verbose = TRUE)
         private$cns <- calc_consensus_string(private$all, private$lcn, verbose = TRUE)
       }
     },
@@ -83,6 +105,9 @@ HLAGene_ <- R6::R6Class(
     },
     has_distances = function() {
       is.matrix(private$dmt)
+    },
+    is_kir = function() {
+      private$kir
     }
   ),
   private = list(
@@ -90,7 +115,8 @@ HLAGene_ <- R6::R6Class(
     lcn = NULL, # [character]; locus name
     all = NULL, # [HLAAllele]; alleles
     dmt = NULL, # [matrix]; distance matrix based on exon 2 (it's the only one that is always present)
-    cns = NULL  # [DNAStringSet]; consensus sequence based on all full-length alleles
+    cns = NULL, # [DNAStringSet]; consensus sequence based on all full-length alleles
+    kir = NULL # [logical]
   )
 )
 
@@ -106,7 +132,10 @@ HLAGene_$set("public", "get_closest_complete_neighbor", function(allele) {
     return(allele)
   }
   if (!self$has_distances()) {
-    private$dmt <- calc_exon2_distance(self$get_alleles(), verbose = TRUE)
+    if (!self$is_kir())
+      private$dmt <- calc_exon2_distance(self$get_alleles(), verbose = TRUE)
+    else
+      private$dmt <- calc_common_exon_distance(self$get_alleles(), verbose = TRUE)
   }
   dmi <- private$dmt[allele, nm_complete]
   names(which.min(dmi))
@@ -276,6 +305,20 @@ calc_exon2_distance <- function(x, verbose = TRUE) {
                              restrict = -500, verbose = verbose)
   DECIPHER::DistanceMatrix(aln, includeTerminalGaps = TRUE, verbose = verbose)
 }
+
+calc_common_exon_distance <- function(x, selex = c("Exon 3","Exon 4","Exon 5"), verbose = TRUE) {
+  stopifnot(requireNamespace("DECIPHER", quietly = TRUE))
+  ms <- hlatools::sequences(x)
+  all.ranges <- hlatools::ranges(hlatools::features(x))
+  intex <- lapply(all.ranges,function(x) x[names(x) %in% selex])
+  exseq <- Biostrings::DNAStringSet(sapply(1:length(ms),
+                                           function(i) unlist(GenomicFeatures::extractTranscriptSeqs(ms[[i]],IRanges::IRangesList(intex[[i]])))))
+  names(exseq) <- allele_name(x)
+  aln <- DECIPHER::AlignSeqs(exseq, iterations = 0, refinements = 0,
+                             restrict = -500, verbose = verbose)
+  DECIPHER::DistanceMatrix(aln, includeTerminalGaps = TRUE, verbose = verbose)
+}
+
 
 calc_consensus_string <- function(x, locusname = "", verbose = TRUE) {
   stopifnot(
