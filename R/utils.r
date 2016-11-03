@@ -1,6 +1,15 @@
 valid_hla_loci_ <- function() {
   c('HLA-A', 'HLA-B', 'HLA-C', 'HLA-DPB1', 'HLA-DQB1', 'HLA-DRB1')
 }
+valid_kir_loci_ <- function() {
+  c("KIR2DL1",  "KIR2DL2",  "KIR2DL3",  "KIR2DL4", "KIR2DL5A", "KIR2DL5B",  "KIR2DP1",  "KIR2DS1",
+    "KIR2DS2",  "KIR2DS3",  "KIR2DS4",  "KIR2DS5",  "KIR3DL1",  "KIR3DL2",  "KIR3DL3",  "KIR3DP1",
+    "KIR3DS1")
+}
+
+match_kir <- function(locus) {
+  locus <- match.arg(toupper(locus), valid_kir_loci_())
+}
 
 expand_hla_allele <- function(x, locus = NULL) {
   if (is.null(locus)) {

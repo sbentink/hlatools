@@ -30,7 +30,8 @@ Imports:
     xml2,
     assertive.types,
     assertive.base,
-    assertive.properties
+    assertive.properties,
+    kirtools
 RoxygenNote: 5.0.1
 Collate:
     'utils.r'

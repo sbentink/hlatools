@@ -49,9 +49,9 @@ HLAGene <- function(locusname, ...) {
 HLAGene_ <- R6::R6Class(
   classname = "HLAGene",
   public = list(
-    initialize = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE,kir=FALSE) {
-      private$kir <- kir
-      if (!kir) self$initialize_hla(locusname, ncores = ncores, with_dist = with_dist)
+    initialize = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
+      private$kir <- grepl("^KIR",toupper(locusname))
+      if (!private$kir) self$initialize_hla(locusname, ncores = ncores, with_dist = with_dist)
       else self$initialize_kir(locusname,ncores = ncores,with_dist = with_dist)
     },
     initialize_hla = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
@@ -65,17 +65,10 @@ HLAGene_ <- R6::R6Class(
       }
     },
     initialize_kir = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
-      my_path = file.path(kirtools::get_kir_path(),"extdata")
-      my_file = dir(my_path,"*.dat$")[1]
-      private$dbv = my_file
-      private$lcn = locusname
-      kir_ob = kirtools::KIRAlleleFromDB(locusname,file.path(my_path,my_file),"exec")
-      hla_ob = new("HLAAllele")
-      hla_ob@sequence  = kir_ob@sequence
-      hla_ob@features  = kir_ob@features
-
-      hla_ob@metadata  = kir_ob@metadata
-      private$all = hla_ob
+      private$lcn = match_kir(locusname)
+      kir_ob = kirtools::KIRGeneAlleles(locusname)
+      private$dbv = getOption("kt_dbName")
+      private$all = kir_ob
       if (with_dist) {
         private$dmt <- calc_common_exon_distance(private$all, verbose = TRUE)
         private$cns <- calc_consensus_string(private$all, private$lcn, verbose = TRUE)
