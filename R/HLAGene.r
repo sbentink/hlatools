@@ -52,7 +52,7 @@ HLAGene_ <- R6::R6Class(
     initialize = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
       private$kir <- grepl("^KIR",toupper(locusname))
       if (!private$kir) self$initialize_hla(locusname, ncores = ncores, with_dist = with_dist)
-      else self$initialize_kir(locusname,ncores = ncores,with_dist = with_dist)
+      else self$initialize_kir(locusname, ncores = ncores, with_dist = with_dist)
     },
     initialize_hla = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
       doc <- read_hla_xml()
@@ -65,10 +65,10 @@ HLAGene_ <- R6::R6Class(
       }
     },
     initialize_kir = function(locusname, ncores = parallel::detectCores(), with_dist = FALSE) {
-      private$lcn = match_kir(locusname)
-      kir_ob = kirtools::KIRGeneAlleles(locusname)
-      private$dbv = getOption("kt_dbName")
-      private$all = kir_ob
+      private$lcn <- match_kir(locusname)
+      kir_ob      <- kirtools::KIRGeneAlleles(private$lcn)
+      private$dbv <- getOption("kt_dbName")
+      private$all <- kir_ob
       if (with_dist) {
         private$dmt <- calc_common_exon_distance(private$all, verbose = TRUE)
         private$cns <- calc_consensus_string(private$all, private$lcn, verbose = TRUE)
@@ -299,13 +299,14 @@ calc_exon2_distance <- function(x, verbose = TRUE) {
   DECIPHER::DistanceMatrix(aln, includeTerminalGaps = TRUE, verbose = verbose)
 }
 
-calc_common_exon_distance <- function(x, selex = c("Exon 3","Exon 4","Exon 5"), verbose = TRUE) {
+calc_common_exon_distance <- function(x, selex = c("Exon 3", "Exon 4", "Exon 5"), verbose = TRUE) {
   stopifnot(requireNamespace("DECIPHER", quietly = TRUE))
   ms <- hlatools::sequences(x)
   all.ranges <- hlatools::ranges(hlatools::features(x))
-  intex <- lapply(all.ranges,function(x) x[names(x) %in% selex])
-  exseq <- Biostrings::DNAStringSet(sapply(1:length(ms),
-                                           function(i) unlist(GenomicFeatures::extractTranscriptSeqs(ms[[i]],IRanges::IRangesList(intex[[i]])))))
+  intex <- lapply(all.ranges, function(x) x[names(x) %in% selex])
+  exseq <-
+    Biostrings::DNAStringSet(sapply(1:length(ms), function(i)
+      unlist(GenomicFeatures::extractTranscriptSeqs(ms[[i]], IRanges::IRangesList(intex[[i]])))))
   names(exseq) <- allele_name(x)
   aln <- DECIPHER::AlignSeqs(exseq, iterations = 0, refinements = 0,
                              restrict = -500, verbose = verbose)

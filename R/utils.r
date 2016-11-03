@@ -9,6 +9,7 @@ valid_kir_loci_ <- function() {
 
 match_kir <- function(locus) {
   locus <- match.arg(toupper(locus), valid_kir_loci_())
+  locus
 }
 
 expand_hla_allele <- function(x, locus = NULL) {
